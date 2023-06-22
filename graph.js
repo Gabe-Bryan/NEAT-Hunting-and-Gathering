@@ -58,14 +58,10 @@ const saveGenomes = () => {
 }
 
 const parseData = (data) => {
-    agentTrackerAttributesToCollect.forEach(attr =>{
-        download(attr + '_' + db + "_" + db_collection + ".csv", serializeData(data, attr, true));
-    });
-    // download("AvgRawFitness-" + db + "-" + db_collection + ".csv", serializeData(data, "avgFitness", true));
-    // download("Consumption-" + db + "-" + db_collection + ".csv", serializeData(data, "consumption", true));
-    // download("PercDead-" + db + "-" + db_collection + ".csv", serializeData(data, "avgPercDead", true));
-    // download("PredWinnerBonus-" + db + "-" + db_collection + ".csv", serializeData(data, "avgPredWinnerBonus", true));
-    // download("EnergySpent-" + db + "-" + db_collection + ".csv", serializeData(data, "avgEnergySpent", true));
+    //agentTrackerAttributesToCollect.forEach(attr =>{
+    //    download(attr + '_' + db + "_" + db_collection + ".csv", serializeData(data, attr, true));
+    //});
+    download("consumption_" + db + "_" + db_collection + ".csv", serializeData(data, "consumption", true));
 }
 
 const download = (filename, text) => {

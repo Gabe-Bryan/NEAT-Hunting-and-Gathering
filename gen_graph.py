@@ -17,7 +17,8 @@ bounds = {
     'avgEnergySpent': [0, 0],
     'avgPercDead': [0, 0],
     'totalFoodConsumptionCount': [0, 0],
-    'avgPredWinnerBonus': [0, 0]
+    'avgPredWinnerBonus': [0, 0],
+    'consumption': [0, 0]
 }
 
 def determineMax(curr):
@@ -35,6 +36,8 @@ def updateBounds(file, df):
     fMax = df.max().max()
     fMin = df.min().min()
     currMax = bounds[fparts[0]][1]
+    if(fparts[0] == 'totalTicksOutOfBounds' and fMax > 6000): 
+        fMax = 6000
     currMin = bounds[fparts[0]][0]
     bounds[fparts[0]][1] = max(fMax, currMax)
     bounds[fparts[0]][0] = min(fMin, currMin)
@@ -52,8 +55,9 @@ def recurseFolders(curr):
             recurseFolders(curr + '/' + f)
         else:
             labels = getPlotLabels(f)
+            parts = curr.split("/")
             print(labels)
-            createPlot(src + curr + '/' + f, dest + curr, labels[0], labels[1], labels[2], getBounds(f))
+            createPlot(src + curr + '/' + f, dest + curr, parts[len(parts) - 1] + ":\n" + labels[0], labels[1], labels[2], getBounds(f))
 
 def getPlotLabels(file):
     fparts = file.split('_')
@@ -84,6 +88,8 @@ def getTitle(fparts):
         return 'Total Food Consumed by Prey Per Generation'
     elif titleId == 'avgPredWinnerBonus':
         return 'Average Predator Winner Bonus Per Generation'
+    elif titleId == 'consumption':
+        return 'Total Calories Consumed By Prey Per Generation'
     else:
         print('A title ID does not exist yet! Add ' + titleId + ' to the getTitle(titleId) method.', file=sys.stderr)
     return 'error :('
@@ -104,32 +110,34 @@ def getYLabel(fparts):
         return 'Total Food Consumed by Prey'
     elif titleId == 'avgPredWinnerBonus':
         return 'Average Predator Winner Bonus'
+    elif titleId == 'consumption':
+        return 'Calories Consumed'
     else:
         print('A title ID does not exist yet! Add ' + titleId + ' to the getTitle(titleId) method.', file=sys.stderr)
-    return 'error :('
+        exit(1)
 
 def createPlot(csv_path, plotDest, title, x_label, y_label, bounds):
     df = pd.read_csv(csv_path)
     df.drop('Average', axis = 'columns', inplace = True)
     df.dropna(axis=1, inplace = True)
-    df['Average'] = df.mean(numeric_only=True, axis=1)
     print(df)
     
     c_len = len(df.columns)
     scatter = df#.drop('Average', axis = 'columns')
 
+    plt.figure(figsize=(8, 4.5))
     for c in scatter.columns:
-        plt.scatter(scatter.index.array, scatter[c],  4, label = c)
-    plt.plot(df['Average'], linewidth = 2, label = 'Average', color = 'black')
+        plt.scatter(scatter.index.array, scatter[c],  2, label = c)
+    plt.plot(df.mean(numeric_only=True, axis=1), linewidth = 2.75, label = 'Average', color = 'black')
 
     plt.xlabel(x_label)
     plt.ylabel(y_label)
-    plt.title(title)
+    plt.title(title.replace('-', '.'))
     plt.legend()
     plt.ylim(top = bounds[1], bottom = bounds[0])
     #plt.show()
 
-    fileName = title.replace(' ', '_')
+    fileName = title.replace(' ', '_').replace(':\n', '')
     plt.savefig(plotDest + '/' + fileName +'.png')
     plt.clf()
     
@@ -138,3 +146,4 @@ if len(os.listdir(dest)) != 0:
     exit(1)
 determineMax('')
 recurseFolders('')
+print(bounds)
