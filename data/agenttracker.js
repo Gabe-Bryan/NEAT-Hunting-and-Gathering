@@ -29,6 +29,7 @@ class AgentTracker {
             totalTicksOutOfBounds: 0,
             totalTicksOutOfBounds_Prey: 0,
             totalTicksOutOfBounds_Predator: 0,
+            totalCaloriesConsumedAsPrey: 0,
             totalFoodConsumptionCount: 0,
             speciesFoodConsumptionCount: [],
             speciesSuccessfulHuntCount: [],

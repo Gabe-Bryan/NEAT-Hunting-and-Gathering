@@ -58,21 +58,34 @@ const saveGenomes = () => {
 }
 
 const parseData = (data) => {
-    //agentTrackerAttributesToCollect.forEach(attr =>{
-    //    download(attr + '_' + db + "_" + db_collection + ".csv", serializeData(data, attr, true));
-    //});
-    download("consumption_" + db + "_" + db_collection + ".csv", serializeData(data, "consumption", true));
+    // agentTrackerAttributesToCollect.forEach(attr =>{
+    //     download(attr + '_' + db + "_" + db_collection + ".csv", serializeData(data, attr, true));
+    // });
+
+    //Only download these for conveniency
+    download("totalCaloriesConsumedAsPrey_" + db + "_" + db_collection + ".csv", serializeData(data, "totalCaloriesConsumedAsPrey", true));
+    download("totalFoodConsumptionCount_" + db + "-" + db_collection + ".csv", serializeData(data, "totalFoodConsumptionCount", true));
+    download("totalPreyHuntedCount_" + db + "-" + db_collection + ".csv", serializeData(data, "totalPreyHuntedCount", true));
+    download("totalTicksOutOfBounds_" + db + "-" + db_collection + ".csv", serializeData(data, "totalTicksOutOfBounds", true));
+    
+
+    // download("AvgRawFitness-" + db + "-" + db_collection + ".csv", serializeData(data, "avgFitness", true));
+    // download("Consumption-" + db + "-" + db_collection + ".csv", serializeData(data, "consumption", true));
+    // download("PercDead-" + db + "-" + db_collection + ".csv", serializeData(data, "avgPercDead", true));
+    // download("PredWinnerBonus-" + db + "-" + db_collection + ".csv", serializeData(data, "avgPredWinnerBonus", true));
+    // download("EnergySpent-" + db + "-" + db_collection + ".csv", serializeData(data, "avgEnergySpent", true));
 }
 
 const download = (filename, text) => {
     if(!text) {console.log(text); return;}
-    console.log("should work now...");
+    
     let pom = document.createElement('a');
     downloader++;
     pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
     pom.setAttribute('download', filename);
     pom.click();
     pom.remove();
+    pom = null;
     console.log("Downloading: " + filename);
 }
 

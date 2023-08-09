@@ -13,6 +13,7 @@ class PopulationManager {
     static CURRENT_GEN_DATA_GATHERING_SLOT = 0;
     static WORLD_COLOR_POOL = [];
     static MINIMAP;
+    static CURRENT_WORLD_DISPLAY = 0;
 
     static IS_LAST_TICK = false;//Use for debugging purposes; to determine whether the current population is at its last tick
 
@@ -98,6 +99,11 @@ class PopulationManager {
 
         this.preyConsumedData = {
             chart: new Linechart(20, 50, 700, 400, [], "Prey Consumed Per Generations Chart", "Generations", "Times consumed"),
+            currentGenData: 0,
+        }
+
+        this.preyCaloriesEatenData = {
+            chart: new Linechart(20, 50, 700, 400, [], "Calories Eaten By Prey Per Generations Chart", "Generations", "Times consumed"),
             currentGenData: 0,
         }
 
@@ -253,14 +259,11 @@ class PopulationManager {
         //Update the params
         //params.FREE_RANGE = document.getElementById("free_range").checked;
         params.AGENT_NEIGHBORS = document.getElementById("agent_neighbors").checked;
-        params.FOOD_OUTSIDE = document.getElementById("food_outside_circle").checked;
-        params.FOOD_INSIDE = document.getElementById("food_inside_circle").checked;
         params.ENFORCE_MIN_FOOD = document.getElementById("enforce_min_food").checked;
         //params.ENFORCE_MIN_POISON = document.getElementById("enforce_min_poison").checked;
         //params.RAND_FOOD_PHASES = document.getElementById("rand_food_phases").checked;
         //params.RAND_FOOD_LIFETIME = document.getElementById("rand_food_lifetime").checked;
         params.RAND_DEFAULT_WEIGHTS = document.getElementById("rand_default_weights").checked;
-        params.GEN_STOP = document.getElementById("gen_stop").checked;
         //params.DYNAMIC_AGENT_SIZING = document.getElementById("dynamic_agent_sizing").checked;
         params.AGENT_VISION_DRAW_CONE = document.getElementById("draw_agent_vision_cone").checked;
         params.NO_DECAYING_FOOD = document.getElementById("no_decaying").checked;
@@ -271,10 +274,22 @@ class PopulationManager {
         params.MOVING_FOOD = document.getElementById("moving_food").checked;
         params.RANDOMIZE_FOOD_SPAWN_PATTERN = document.getElementById("randomizing_food_spawn_pattern").checked;
         params.PAUSE_DRAWING = document.getElementById("pauseDrawing").checked;
-        params.FOOD_BUSH = document.getElementById("food_bush").checked;
+        params.GRADUAL_CONSUMPTION = document.getElementById("GRADUAL_CONSUMPTION").checked;
+       
         params.MIRROR_ROLES = document.getElementById("mirror_roles").checked;
         params.DISPLAY_MINIMAP = document.getElementById("display_minimap").checked;
         params.BUSH_SIGHT_MODE = document.getElementById("bush_sight_mode");
+        
+        if (params.GRADUAL_CONSUMPTION){
+            document.getElementById("GRADUAL_CONSUMPTION_RESPAWN").disabled = false;
+          
+            params.GRADUAL_CONSUMPTION_RESPAWN = document.getElementById("GRADUAL_CONSUMPTION_RESPAWN").checked;
+        }
+        else{
+            document.getElementById("GRADUAL_CONSUMPTION_RESPAWN").disabled = true;
+            document.getElementById("GRADUAL_CONSUMPTION_RESPAWN").checked = false;
+            params.GRADUAL_CONSUMPTION_RESPAWN = false;
+        }
 
         if (params.PAUSE_DRAWING) {
             //Update the generation count 
@@ -340,9 +355,6 @@ class PopulationManager {
             params.FOOD_AGENT_RATIO = parseInt(document.getElementById("food_agent_ratio").value);
         }
 
-        if (document.activeElement.id !== "poison_agent_ratio") {
-            params.POISON_AGENT_RATIO = parseInt(document.getElementById("poison_agent_ratio").value);
-        }
         if (document.activeElement.id !== "agent_vision_radius") {
             params.AGENT_VISION_RADIUS = parseFloat(document.getElementById("agent_vision_radius").value);
         }
@@ -358,9 +370,7 @@ class PopulationManager {
         if (document.activeElement.id !== "agent_neighbor_count") {
             params.AGENT_NEIGHBOR_COUNT = parseInt(document.getElementById("agent_neighbor_count").value);
         }
-        if (document.activeElement.id !== "calories_per_food") {
-            params.CALORIES_PER_FOOD = parseInt(document.getElementById("calories_per_food").value);
-        }
+
 
         if (document.activeElement.id !== "fitness_calories") {
             if (document.getElementById("fitness_calories") && document.getElementById("fitness_calories").value)
@@ -452,17 +462,6 @@ class PopulationManager {
         params.SAVE_TO_DB = document.getElementById("save_to_db").checked;
         params.AUTO_SAVE_GENOME = document.getElementById("auto_save_genome").checked;
 
-        //Cleans up all of the food/poison for the world
-        // this.worlds.forEach((members, worldId) => {
-        //     members.cleanupFood(false); //cleanup food
-        //     members.cleanupFood(true); //cleanup poison
-        //     if (params.ENFORCE_MIN_FOOD && members.food.length < params.FOOD_AGENT_RATIO * members.agents.length) {
-        //         this.spawnFood(worldId, false, params.FOOD_AGENT_RATIO * members.agents.length - members.food.length);
-        //     }
-        //     if (params.ENFORCE_MIN_POISON && members.poison.length < params.POISON_AGENT_RATIO * members.agents.length) {
-        //         this.spawnFood(worldId, true, params.POISON_AGENT_RATIO * members.agents.length - members.poison.length);
-        //     }
-        // });
         this.checkFoodLevels();
 
         if (params.TICK_TO_UPDATE_CURRENT_GEN_DATA !== 0 && this.tickCounter % params.TICK_TO_UPDATE_CURRENT_GEN_DATA == 0) {
@@ -490,7 +489,7 @@ class PopulationManager {
             PopulationManager.IS_LAST_TICK = false;
         }
         //Check to see if the generation is over
-        if ((this.tickCounter >= params.GEN_TICKS && !params.GEN_STOP) || (params.GEN_STOP && (this.isAgentEnergyGone() || this.isFoodGone()))) {
+        if (this.tickCounter >= params.GEN_TICKS) {
             //When a new generation starts 
             params.EVOLVE_K_AND_M = document.getElementById("evolveKandM").checked; // Update the evolving k and m value
             //Reset counters
@@ -593,6 +592,9 @@ class PopulationManager {
     };
 
     getEntitiesInWorld(worldId, foodOnly = false, agentsOnly = false) {
+        if (!this.worlds){
+            return [];
+        }
         let members = this.worlds.get(worldId);
         if (!members)
             return [];
@@ -1013,6 +1015,7 @@ class PopulationManager {
         let sumPredWinnerBonus = 0;
         let totalOOB_Prey = 0;
         let totalOOB_Predator = 0;
+        let huntingMode = params.HUNTING_MODE === "hierarchy" || params.HUNTING_MODE === "hierarchy_spectrum";
         this.agentsAsList().forEach((agent) => {
             let OOBData = specieOOBData.get(agent.speciesId);
             specieOOBData.set(agent.speciesId,
@@ -1032,8 +1035,16 @@ class PopulationManager {
             sumEnergySpent += agent.caloriesSpent;
             sumPredWinnerBonus += agent.getWinnerBonus("predator");
 
+            //Collecting calories consume info
+            if (huntingMode && agent.foodHierarchyIndex === 0){
+                this.agentTracker.addToAttribute('totalCaloriesConsumedAsPrey', agent.caloriesEaten);
+            }
+
+            //Collecting out of bound info
             this.agentTracker.addToAttribute('totalTicksOutOfBounds_Prey', agent.numberOfTickOutOfBounds_Prey);
             this.agentTracker.addToAttribute('totalTicksOutOfBounds_Predator', agent.numberOfTickOutOfBounds_Predator);
+
+            this.agentTracker.addToAttribute('totalPreyHuntedCount', agent.numberOfPreyHunted);
         });
 
         //Log the data into agent Tracker
@@ -1062,7 +1073,7 @@ class PopulationManager {
             entry['speciesSuccessfulHuntCount'] = data / PopulationManager.SPECIES_MEMBERS.get(speciesId).length;
             this.agentTracker.addSpeciesAttribute('speciesSuccessfulHuntCount', entry);
 
-            this.agentTracker.addToAttribute('totalPreyHuntedCount', data);
+     
         });
 
         //Add averages to agent tracker
@@ -1070,10 +1081,7 @@ class PopulationManager {
         this.agentTracker.addAvgEnergySpent(sumEnergySpent / params.NUM_AGENTS);
         let predWinnerBonus = sumPredWinnerBonus / params.NUM_AGENTS;
         if (!params.MIRROR_ROLES) predWinnerBonus *= 2;
-        this.agentTracker.addAvgPredWinnerBonus(predWinnerBonus)
-
-
-
+        this.agentTracker.addAvgPredWinnerBonus(predWinnerBonus);
     }
 
     displayDataChart() {
@@ -1081,6 +1089,9 @@ class PopulationManager {
         if (params.HUNTING_MODE === "hierarchy" || params.HUNTING_MODE === "hierarchy_spectrum") {
             this.preyConsumedData.chart.addEntry(this.agentTracker.getCurrentGenAttriBute('totalPreyHuntedCount'));
             generateLineChart({ chart: this.preyConsumedData.chart }, "preyHuntedLineChart", "lineChartOutputContainters");
+
+            this.preyCaloriesEatenData.chart.addEntry(this.agentTracker.getCurrentGenAttriBute('totalCaloriesConsumedAsPrey'));
+            generateLineChart({ chart: this.preyCaloriesEatenData.chart }, "caloriesPreyEatenLineChart", "lineChartOutputContainters");
 
             generateLineChart(
                 {
@@ -1151,7 +1162,7 @@ class PopulationManager {
                 title: 'Total Calories Consumed Per Generation'
             },
             "avgCaloriesLineChart", "lineChartOutputContainters",
-        );
+        );      
 
         //Generates the data charts
         //generateFitnessChart(this.agentTracker.getAgentTrackerAttributesAsList("speciesFitness"));//getAgentTrackerAttributesAsList("avgFitness"));
@@ -1350,7 +1361,7 @@ class PopulationManager {
             }
 
             this.resetSim();
-            if (params.SIM_TRIAL_NUM < params.SIM_CURR_TRIAL + 1) {
+            if (params.SIM_TRIAL_NUM <= params.SIM_CURR_TRIAL) {
                 //Call pausing button
                 let pauseButton = document.getElementById('pause_sim');
                 if (pauseButton) {

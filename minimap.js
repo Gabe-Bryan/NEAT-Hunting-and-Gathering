@@ -82,19 +82,8 @@ class Minimap {
     }
 
     updateMainDisplay(worldDisplay) {
-        //"carousel-item active"
-        this.game.population.worlds.forEach((world) => {
-            let doc = document.getElementById('worldCanvas' + world.worldId);
-            if (worldDisplay === world.worldId) {
-
-
-                doc.setAttribute('class', 'carousel-item active');
-
-            }
-            else {
-                doc.setAttribute('class', 'carousel-item');
-            }
-        });
+        document.getElementById(`carousel-button-slide-${worldDisplay}`).click();
+        PopulationManager.CURRENT_WORLD_DISPLAY = worldDisplay;
     }
 
     update() {
@@ -311,7 +300,7 @@ class Minimap {
             ctx.fillStyle = "blue";
             ctx.font = Math.round(this.sizeOfAWorld / 10) + "px sans-serif";
 
-            ctx.fillText(world.worldId, startX, startY + this.sizeOfAWorld + this.bufferRow);
+            ctx.fillText(world.worldId, startX + 2, startY + this.sizeOfAWorld + this.bufferRow - 8);
 
             if (!world.isActive) {
                 ctx.font = Math.round(this.sizeOfAWorld / 25) + "px sans-serif";
@@ -380,7 +369,10 @@ class Minimap {
  * @param {*} width The width of the element
  * @param {*} height The height of the element
  */
-const drawMinimap = (minimap = PopulationManager.MINIMAP, minimapElementID = 'minimap', container = 'minimapContainters', style = '', width = 1000, height = 1000) => {
+const drawMinimap = (minimap = PopulationManager.MINIMAP, minimapElementID = 'minimap', container = 'minimapContainters', 
+        style = 'border: 1px solid black;',
+        width = 1000, height = 1000,
+    ) => {
     let canvas = document.createElement('canvas');
 
     if (!document.getElementById(minimapElementID)) {

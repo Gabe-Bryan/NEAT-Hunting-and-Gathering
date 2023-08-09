@@ -121,7 +121,7 @@ class Food {
     };
 
 
-    getDisplayHue(){
+    getDisplayHue() {
         return this.ticksToConsume / params.MAX_TICKS_TO_CONSUME * 110;
     };
 
@@ -166,9 +166,9 @@ class Food {
      * @returns this Food's data hue
      */
     getDataHue(entity = null) {
-        
+
         if (this.phase_properties[this.phase] == undefined) console.error("Undefined phase properties. Phase is: " + this.phase);
-        if(entity === null) return this.phase_properties[this.phase].color;
+        if (entity === null) return this.phase_properties[this.phase].color;
         let baseColor = entity.foodHierarchyIndex > 0 ? 180 : this.phase_properties[this.phase].color;//Predator sees food differently than prey
         let res = baseColor * (1 - 0.2 * this.getConsumptionCompletion());
         return res;
@@ -188,13 +188,13 @@ class Food {
         //Choosing the next destination 
         this.movingFood = {
             goal: (currentPos + 1) % Food.MOVING_DESTINATION.length,
-            
+
             random_movement_activation: 40,
             random_cooldown: randomInt(40),
-            
+
             correct_movement_activation: 50,
             correcting_cooldown: randomInt(50),
-            
+
         }
 
         this.dx = 0;
@@ -215,9 +215,9 @@ class Food {
      * @returns "{calories, consumption completion fraction}"
     */
     consume() {
-        if(this.ticksToConsume >= 0) this.ticksToConsume--;
+        if (this.ticksToConsume > 0) this.ticksToConsume--;
         this.lastTickBeingEaten = this.game.population.tickCounter;
-        if(params.FOOD_BUSH) return this.gradualConsume();
+        if (params.GRADUAL_CONSUMPTION) return this.gradualConsume();
         else return this.singleConsume();
     };
 
@@ -235,27 +235,29 @@ class Food {
             return { calories: cals, completion: 1 };
         }
         return { calories: 0, completion: (params.MAX_TICKS_TO_CONSUME - this.ticksToConsume) / params.MAX_TICKS_TO_CONSUME };
-    
+
     }
 
-    gradualConsume(){
-        if(this.ticksToConsume >= 0) {
-            let cals = this.getCalories() / params.MAX_TICKS_TO_CONSUME;
+    gradualConsume() {
+        if (this.ticksToConsume > 0) {
+            let cals = (this.getCalories() * 1.0) / params.MAX_TICKS_TO_CONSUME;
             this.foodTracker.addCalories(cals);
-            return {calories: cals, completion: this.getConsumptionCompletion()};
+            return { calories: cals, completion: this.getConsumptionCompletion() };
+        } else if (params.GRADUAL_CONSUMPTION_RESPAWN){
+            this.removeFromWorld = true;
         }
-        return {calories: 0, completion: this.getConsumptionCompletion()};
+        return { calories: 0, completion: this.getConsumptionCompletion() };
     }
 
     getCalories() {
         if (this.phase >= this.lifecycle_phases.dead) return 0;
         return this.isPoison ?
-            Math.abs(this.phase_properties[this.phase].calories) * -1
-            : this.phase_properties[this.phase].calories;
+            Math.abs(this.phase_properties[this.phase].calories) * -1.0
+            : this.phase_properties[this.phase].calories * 1.0;
     }
 
-    getConsumptionCompletion(){
-        return (params.MAX_TICKS_TO_CONSUME - this.ticksToConsume) / params.MAX_TICKS_TO_CONSUME;
+    getConsumptionCompletion() {
+        return (params.MAX_TICKS_TO_CONSUME - this.ticksToConsume * 1.0) / params.MAX_TICKS_TO_CONSUME;
     }
 
     /** Processes a reproduction operation on this food */
@@ -267,12 +269,12 @@ class Food {
             this.game.population.worlds.get(this.worldId).food.length;
 
         //Do not reproduce if too much food is left
-        if (params.ENFORCE_MIN_FOOD && (numAgents * params.FOOD_AGENT_RATIO < this.game.population.worlds.get(this.worldId).food.length)){
+        if (params.ENFORCE_MIN_FOOD && (numAgents * params.FOOD_AGENT_RATIO < this.game.population.worlds.get(this.worldId).food.length)) {
             return;
         }
 
         //Do not reproduce if too much poison is left
-        if (params.ENFORCE_MIN_POISON && (numAgents * params.POISON_AGENT_RATIO < this.game.population.worlds.get(this.worldId).poison.length)){
+        if (params.ENFORCE_MIN_POISON && (numAgents * params.POISON_AGENT_RATIO < this.game.population.worlds.get(this.worldId).poison.length)) {
             return;
         }
 
@@ -324,16 +326,16 @@ class Food {
                 this.updateMovingDestination();
             }
             let goal = Food.MOVING_DESTINATION[this.movingFood.goal];
-            
+
             //Check whether it is about to be out of bound 
-            let aboutToBeOutOfBound = isOutOfBound(this.x + this.dx * this.phase_properties[this.phase].radius, 
+            let aboutToBeOutOfBound = isOutOfBound(this.x + this.dx * this.phase_properties[this.phase].radius,
                 this.y + this.dy * this.phase_properties[this.phase].radius);
 
             //Check the cooldown when to correct movement
-            if (this.movingFood.correcting_cooldown >= this.movingFood.correct_movement_activation 
+            if (this.movingFood.correcting_cooldown >= this.movingFood.correct_movement_activation
                 || params.MOVING_FOOD_PATTERN === "direct" //Trigger when movement type is direct
                 || aboutToBeOutOfBound //Trigger when about to be out of bound
-                ) {
+            ) {
                 //Update dx and dy according to the position
                 this.dx = params.FOOD_VELOCITY_X;
                 this.dy = params.FOOD_VELOCITY_Y;
@@ -346,7 +348,7 @@ class Food {
                 }
                 this.movingFood.correcting_cooldown = 0;
             }
-            else{
+            else {
                 this.movingFood.correcting_cooldown++;
             }
 
@@ -355,10 +357,10 @@ class Food {
                 //Moving in drunken sailor style
                 case "drunkenSailor":
                     //Check cooldown
-                    
+
                     if (this.movingFood.random_cooldown >= this.movingFood.random_movement_activation
                         && !aboutToBeOutOfBound //Don't randomize when soon to be out of bound
-                        ){
+                    ) {
                         let swayDx = randomFloat(2 * params.FOOD_VELOCITY_X) - params.FOOD_VELOCITY_X;
                         let swayDy = randomFloat(2 * params.FOOD_VELOCITY_Y) - params.FOOD_VELOCITY_Y;
 
@@ -366,7 +368,7 @@ class Food {
                         this.dy = swayDy;
                         this.movingFood.random_cooldown = 0;
                     }
-                    else{
+                    else {
                         this.movingFood.random_cooldown++;
                     }
                     break;
@@ -400,10 +402,8 @@ class Food {
 
         if (!params.MOVING_FOOD) {
             /** If we are outside of the bounds established by the sim, remove this food and return early and food has to be stationary*/
-            if ((this.x < 0 || this.y < 0 || this.x > params.CANVAS_SIZE || this.y > params.CANVAS_SIZE) // outside the world?
-                || ((!(params.FOOD_OUTSIDE) && this.isOutsideOuterCircle()) || // outside the main food circle?
-                    (!(params.FOOD_INSIDE) && this.isInsideInnerCircle())) // inside the innermost center food circle?
-            ) {
+            if (this.x < 0 || this.y < 0 || this.x > params.CANVAS_SIZE || this.y > params.CANVAS_SIZE) // outside the world?
+            {
                 this.removeFromWorld = true;
                 return;
             }
@@ -430,9 +430,9 @@ class Food {
             }
         }
 
-        if (this.game.population.tickCounter - this.lastTickBeingEaten >= params.COOLDOWN_TO_REGEN 
-            && this.ticksToConsume < params.MAX_TICKS_TO_CONSUME) 
-            this.ticksToConsume++;
+        if (this.game.population.tickCounter - this.lastTickBeingEaten >= params.COOLDOWN_TO_REGEN
+            && this.ticksToConsume < params.MAX_TICKS_TO_CONSUME)
+            this.ticksToConsume = params.MAX_TICKS_TO_CONSUME;
 
         if (!this.removeFromWorld) {
             this.updateBoundingCircle(); // update our bounding circle to reflect our state
@@ -497,7 +497,7 @@ class Food {
         if (params.DISPLAY_SAME_WORLD) {
             ctx.fillStyle = "orange";
             ctx.font = parseInt(2 * params.FOOD_DIAMETER / 3) + "px sans-serif";
-            
+
             ctx.textAlign = "center";
             ctx.fillText(this.worldId, this.x, this.y + this.phase_properties[this.phase].radius / 2);
             ctx.textAlign = "left";

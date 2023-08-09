@@ -1,15 +1,13 @@
 /** Global Parameters Object */
 const params = {
     CANVAS_SIZE: 1000,
-    DB: "test",
+    DB: "testDB",
     DB_COLLECTION: "NEATtests",
     GEN_TO_SAVE: 40,
     GENOME_DB: "test",
     GENOME_DB_COLLECTION: "NEATGenomeTests1",
     AUTO_SAVE_GENOME: false,
     GEN_TO_SAVE_GENOME: 100,
-    FOOD_OUTSIDE: false,
-    FOOD_INSIDE: false,
     GEN_TICKS: 700,
     AGENT_NEIGHBORS: true,
     FOOD_AGENT_RATIO: 1,
@@ -32,12 +30,12 @@ const params = {
     FITNESS_PERCENT_DEAD: 0,
     FITNESS_ENERGY_EFFICIENCY: 0,
     FITNESS_WINNER_BONUS: 50,
-    GEN_STOP: false,
+
     NO_DECAYING_FOOD: true,
     CALORIES_PER_FOOD: 50,
     INNER_WALL: false,
     NUM_AGENTS: 50,
-    AGENT_PER_WORLD : 2,
+    AGENT_PER_WORLD: 2,
     DYNAMIC_AGENT_SIZING: false,
     AGENT_VISION_RAYS: 13,
     AGENT_VISION_ANGLE: 180,
@@ -69,17 +67,19 @@ const params = {
     PREDATOR_MAX_SPEED: 5,
     AGENT_DIAMETER: 15,
     FOOD_DIAMETER: 24,
-    FOOD_BUSH: true,
+    GRADUAL_CONSUMPTION: true,
+    GRADUAL_CONSUMPTION_RESPAWN: true,
     MIRROR_ROLES: true,
     BUSH_SIGHT_MODE: "solid",
     INACTIVE_PREY_TARGETABLE: true,
     PUSH_FHI_TO_ANN: true,
+
 };
 
 const agentTrackerAttributesToCollect = [
     "avgFitness", "avgEnergySpent", "avgPercDead", "avgPredWinnerBonus",
     "totalPreyHuntedCount", "totalFoodConsumptionCount", "totalTicksOutOfBounds",
-    "totalTicksOutOfBounds_Prey", "totalTicksOutOfBounds_Predator"
+    "totalTicksOutOfBounds_Prey", "totalTicksOutOfBounds_Predator", "totalCaloriesConsumedAsPrey"
 ];
 
 const getMedian = (arr) => {
@@ -119,13 +119,13 @@ const randomFloat = (n) => Math.random() * n;
  */
 const randomFloatUniform = (min, max) => {
     let u1 = Math.random();
-    if(u1 == 0) u1 = 0.000000001;
+    if (u1 == 0) u1 = 0.000000001;
     let u2 = Math.random();
     let z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2) * 0.1 + 0.5;
 
-    let res = z * (max-min) + min;
-    if(res > max) res = max;
-    if(res < min) res = min;
+    let res = z * (max - min) + min;
+    if (res > max) res = max;
+    if (res < min) res = min;
     return res;
 }
 
@@ -222,6 +222,11 @@ const createSlideShow = (array, id) => {
 
     array.forEach((elem, i) => {
         const indButton = document.createElement('button');
+
+        indButton.setAttribute(
+            'id',
+            `carousel-button-slide-${i}`
+        );
         indButton.setAttribute('type', 'button');
         indButton.setAttribute(
             'data-bs-target',
@@ -231,6 +236,7 @@ const createSlideShow = (array, id) => {
         if (i == activeSlide) {
             indButton.setAttribute('class', 'active');
             indButton.setAttribute('aria-current', 'true');
+            PopulationManager.CURRENT_WORLD_DISPLAY = i;
         }
         indButton.setAttribute('style', 'background-color: black');
         indButton.setAttribute('aria-current', 'true');
@@ -239,7 +245,7 @@ const createSlideShow = (array, id) => {
     });
 
     let count = 0;
-    
+
     array.forEach((elem) => {
         const div = document.createElement('div');
         div.setAttribute(
@@ -247,8 +253,14 @@ const createSlideShow = (array, id) => {
             'class',
             `carousel-item${count == activeSlide ? ' active' : ''}`
         );
+
         div.setAttribute('data-bs-interval', '999999999');
         div.setAttribute('id', `worldCanvas${elem.id}`);
+        elem.canvas.style = `
+            display:flex; 
+            margin: 0 auto;
+            border: 1px solid black;
+        `;
         div.appendChild(elem.canvas);
         carouselContainer.appendChild(div);
         count++;
@@ -263,10 +275,10 @@ const createSlideShow = (array, id) => {
  * Return false if not
  */
 const isOutOfBound = (x, y = params.CANVAS_SIZE / 2, buffer = 0) => {
-    if (x - buffer < 0 || x > params.CANVAS_SIZE - buffer){
+    if (x - buffer < 0 || x > params.CANVAS_SIZE - buffer) {
         return true;
     }
-    if (y - buffer < 0 || y > params.CANVAS_SIZE - buffer){
+    if (y - buffer < 0 || y > params.CANVAS_SIZE - buffer) {
         return true;
     }
     return false;
@@ -275,11 +287,11 @@ const isOutOfBound = (x, y = params.CANVAS_SIZE / 2, buffer = 0) => {
 const execAsync = (fun) => {
     setTimeout(() => {
         fun;
-      }, 0)
+    }, 0)
 };
 
 const logData = (data, dataBase, dbCollection, extraElements = false) => {
-    if(extraElements){
+    if (extraElements) {
         data = {
             genomes: data,
             ...extraElements
@@ -290,13 +302,13 @@ const logData = (data, dataBase, dbCollection, extraElements = false) => {
         collection: dbCollection,
         data: data
     }
-    
+
     console.log(payload);
 
-    if(socket) {
+    if (socket) {
         socket.emit("insert", payload);
         console.log("inserted data to db");
-    }else{
+    } else {
         console.error("Insertion failed... no socket.io detected :'(");
     }
 }

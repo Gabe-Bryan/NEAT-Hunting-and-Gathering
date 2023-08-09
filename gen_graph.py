@@ -1,13 +1,22 @@
-#run with: python gen_graph.py src dest
+#Format to run with command line: python gen_graph.py 'src folder' 'destination folder'
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import sys, os
 
+#Default folders to generate charts
+src = os.getcwd() + "/Charts/RawData_Input"
+dest = os.getcwd() + "/Charts/Result"
 
-src = sys.argv[1]#'C:/Users/gaber/Documents/499RawData'
-dest = sys.argv[2]#'C:/Users/gaber/Documents/499DataCharts'
+STANDARD_TRIALS_NUM = 100
+
+#Support command line argument
+if (len(sys.argv) > 1):
+    if (sys.argv[1] is not None):
+        src = sys.argv[1]
+    if (sys.argv[2] is not None):
+        dest = sys.argv[2]
 #os.chdir(src)
 #print(os.listdir())
 bounds = {
@@ -18,7 +27,7 @@ bounds = {
     'avgPercDead': [0, 0],
     'totalFoodConsumptionCount': [0, 0],
     'avgPredWinnerBonus': [0, 0],
-    'consumption': [0, 0]
+    'totalCaloriesConsumedAsPrey': [0, 0],
 }
 
 def determineMax(curr):
@@ -26,25 +35,49 @@ def determineMax(curr):
     #print(folders)
     for f in folders:
         if '.' in f:
-            df = pd.read_csv(src + curr + '/' + f)
-            labels = updateBounds(f, df)
+            labels = updateValueBounds(f, src + curr + '/' + f )
         else:
             determineMax(curr + '/' + f)
 
-def updateBounds(file, df):
+def updateValueBounds(file, filepath):
     fparts = file.split('_')
+    df = pd.read_csv(filepath)
+    #Remove the average column 
+    df.drop('Average', axis = 'columns', inplace = True)
+     #Format the data correctly by removing NaN values
+    df.dropna(axis=1, inplace = True)
+       
+    cnum = 0
+    for c in df.columns:
+        if (cnum >= STANDARD_TRIALS_NUM):
+            df.drop(c, axis = 'columns', inplace = True)
+        else:
+            cnum += 1
+
+    #Recalculate the average value corresponding to the existing data
+    df['Average'] = df.mean(numeric_only=True, axis=1)
+
     fMax = df.max().max()
     fMin = df.min().min()
+
+    # if (fparts[0] == 'totalPreyHuntedCount'):
+    #     fMax = min(50, fMax)
+    #     #print(fparts, 'Fmax ', fMax, 'Fmin ', fMin)
+
     currMax = bounds[fparts[0]][1]
     if(fparts[0] == 'totalTicksOutOfBounds' and fMax > 6000): 
         fMax = 6000
     currMin = bounds[fparts[0]][0]
+   
     bounds[fparts[0]][1] = max(fMax, currMax)
     bounds[fparts[0]][0] = min(fMin, currMin)
 
 def getBounds(file):
     fparts = file.split('_')
-    return bounds[fparts[0]]
+    res = bounds.get(fparts[0])
+    if (res == None):
+        return [0,0]
+    return res
 
 def recurseFolders(curr):
     folders = os.listdir(src + curr)
@@ -55,9 +88,10 @@ def recurseFolders(curr):
             recurseFolders(curr + '/' + f)
         else:
             labels = getPlotLabels(f)
-            parts = curr.split("/")
-            print(labels)
-            createPlot(src + curr + '/' + f, dest + curr, parts[len(parts) - 1] + ":\n" + labels[0], labels[1], labels[2], getBounds(f))
+            #print(labels)
+            
+            profileName = curr.replace('/', '_')
+            createPlot(src + curr + '/' + f, dest + curr, labels[0], labels[1], labels[2], getBounds(f), profileName)
 
 def getPlotLabels(file):
     fparts = file.split('_')
@@ -88,8 +122,8 @@ def getTitle(fparts):
         return 'Total Food Consumed by Prey Per Generation'
     elif titleId == 'avgPredWinnerBonus':
         return 'Average Predator Winner Bonus Per Generation'
-    elif titleId == 'consumption':
-        return 'Total Calories Consumed By Prey Per Generation'
+    elif titleId == 'totalCaloriesConsumedAsPrey':
+        return 'Total Calories Prey Consumed Per Generation'
     else:
         print('A title ID does not exist yet! Add ' + titleId + ' to the getTitle(titleId) method.', file=sys.stderr)
     return 'error :('
@@ -110,25 +144,44 @@ def getYLabel(fparts):
         return 'Total Food Consumed by Prey'
     elif titleId == 'avgPredWinnerBonus':
         return 'Average Predator Winner Bonus'
-    elif titleId == 'consumption':
-        return 'Calories Consumed'
+    elif titleId == 'totalCaloriesConsumedAsPrey':
+        return 'Total Calories Prey Consumed'
     else:
         print('A title ID does not exist yet! Add ' + titleId + ' to the getTitle(titleId) method.', file=sys.stderr)
         exit(1)
 
-def createPlot(csv_path, plotDest, title, x_label, y_label, bounds):
+def createPlot(csv_path, plotDest, title, x_label, y_label, bounds, profileName = ''):
     df = pd.read_csv(csv_path)
     df.drop('Average', axis = 'columns', inplace = True)
     df.dropna(axis=1, inplace = True)
-    print(df)
-    
-    c_len = len(df.columns)
-    scatter = df#.drop('Average', axis = 'columns')
 
-    plt.figure(figsize=(8, 4.5))
-    for c in scatter.columns:
-        plt.scatter(scatter.index.array, scatter[c],  2, label = c)
-    plt.plot(df.mean(numeric_only=True, axis=1), linewidth = 2.75, label = 'Average', color = 'black')
+    cnum = 0
+    for c in df.columns:
+        if (cnum >= STANDARD_TRIALS_NUM):
+            df.drop(c, axis = 'columns', inplace = True)
+        else:
+            cnum += 1
+
+    #scatter = df.drop('Average', axis = 'columns')
+    c_len = len(df.columns)
+    for c in df.columns:
+        if (c_len - 1 > 10):
+            plt.scatter(df.index.array, df[c],  4, alpha = 0.1)
+        else: 
+            plt.scatter(df.index.array, df[c],  4, label = c, alpha = 0.1)
+    df['Average'] = df.mean(numeric_only=True, axis=1)
+    plt.plot(df['Average'], linewidth = 1.8, label = 'Average', color = 'black')
+    
+    SDAbove = []
+    SDBelow = []
+    df['StandardDeviation'] = df.std(axis = 1, ddof = 0)
+    for mean, sd in zip(df['Average'] , df['StandardDeviation']):
+        SDAbove.append(mean + sd)
+        SDBelow.append(mean - sd)
+
+    #plt.plot(df['StandardDeviation'], linewidth = 1, ls = '--', label = 'Standard Deviation', color = 'red')
+    plt.plot(SDAbove, linewidth = 1.2, ls = '-', label = '+SD', color = 'red', alpha = 0.8)
+    plt.plot(SDBelow, linewidth = 1.2, ls = '-', label = '-SD', color = 'blue', alpha = 0.8)
 
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -137,9 +190,11 @@ def createPlot(csv_path, plotDest, title, x_label, y_label, bounds):
     plt.ylim(top = bounds[1], bottom = bounds[0])
     #plt.show()
 
-    fileName = title.replace(' ', '_').replace(':\n', '')
-    plt.savefig(plotDest + '/' + fileName +'.png')
+    fileName = title.replace(' ', '_')
+    plt.savefig(plotDest + '/' + fileName + profileName + '.png')
     plt.clf()
+
+    print(profileName.replace('_',' ') + " : " + title + " with " + str(len(df.columns) - 2) + " columns")# to show progress
     
 if len(os.listdir(dest)) != 0:
     print('Please clear your destination directory and try again...', file = sys.stderr)
